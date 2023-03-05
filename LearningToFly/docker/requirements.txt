@@ -1,0 +1,12 @@
+pandas 
+protobuf==3.20.3
+jupyterlab
+papermill
+lockfile
+patchelf
+mujoco-py<2.2,>=2.1
+git+https://github.com/eanswer/openai_baselines
+gym<0.14
+pyquaternion
+matplotlib
+seaborn

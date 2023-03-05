@@ -1,0 +1,164 @@
+# you can execute following command for creating Dockerfile
+# python3 ../../compose/build_dockerfile.py ../appyters/NTAPP_hello_tensorflow
+FROM nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
+ENV DEBIAN_FRONTEND "noninteractive"
+ENV TZ "America/New_York"
+
+RUN set -x \
+  && echo "Preparing system..." \
+  && apt-get -y update \
+  && apt-get -y install \
+    curl \
+    fuse \
+    git \
+    nginx \
+    python3-dev \
+    python3-pip \
+    rclone \
+  && rm -rf /var/lib/apt/lists/* \
+  && pip3 install --no-cache-dir --upgrade pip
+
+RUN set -x \
+  && echo "Installing jupyter kernel..." \
+  && pip3 install --no-cache-dir ipykernel \
+  && python3 -m ipykernel install
+
+# Install PyTorch
+RUN pip3 install torch==1.10.0+cu113 torchvision==0.11.1+cu113 torchaudio==0.10.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
+
+#ADD requirements.txt /app/requirements.txt
+#RUN set -x \
+#  && echo "Installing python dependencies from requirements.txt..." \
+#  && pip3 install --no-cache-dir -r /app/requirements.txt \
+#  && rm /app/requirements.txt
+
+#RUN pip3 install aiobotocore==1.3.3
+RUN pip3 install ipdb
+#RUN pip3 install pandas matplotlib numpy==1.12 # tellurium 
+RUN pip3 install pandas matplotlib numpy
+# RUN pip3 install google-cloud-storage
+RUN pip3 install git+https://github.com/iterative/dvc.git dvc[gs] papermill nbformat jupyterlab
+RUN pip3 install git+https://github.com/gifford-lab/prescient.git
+RUN pip3 install leidenalg 
+#RUN pip3 install git+https://github.com/BioNinja/gseapy.git#egg=gseapy
+RUN pip3 install fs nbstripout ipython-cypher 
+# RUN pip3 install jupyter_contrib_nbextensions 
+# RUN pip3 install scTenifoldpy
+
+#### USER ####
+RUN rm /etc/apt/sources.list.d/cuda.list
+RUN rm /etc/apt/sources.list.d/nvidia-ml.list
+RUN apt update && apt install -y --reinstall bash-completion
+RUN apt update && apt install -y sudo vim unzip graphviz
+RUN pip3 install tensorflow
+RUN apt-get update && apt-get install -y r-base
+RUN apt-get update && apt-get install -y wget pigz
+RUN dvc completion -s bash | sudo tee /etc/bash_completion.d/dvc
+###
+
+RUN echo "ALL ALL=NOPASSWD: ALL" >> /etc/sudoers
+
+RUN set -x \
+  && echo "Preparing user..." \
+  && useradd -ms /bin/bash -d /app app \
+  && groupadd fuse \
+  && adduser app fuse \
+  && mkdir -p /app /app/data /data \
+  && chown -R app:app /app /data \
+  && chmod og+rwx -R /var/lib/nginx /var/log/nginx
+
+#Install BioNetGen
+RUN wget https://github.com/RuleWorld/bionetgen/releases/download/BioNetGen-2.6.0/BioNetGen-2.6.0-linux.tgz && \
+	tar -zxvf BioNetGen-2.6.0-linux.tgz && \
+	mv BioNetGen-2.6.0 /usr/local/share/BioNetGen && \
+	ls -al /usr/local/share/BioNetGen
+
+RUN apt update && apt install -y nodejs
+
+RUN apt update
+RUN apt -y install curl dirmngr apt-transport-https lsb-release ca-certificates
+RUN curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+ENV BNGPATH=/usr/local/share/BioNetGen
+
+# RUN add-apt-repository universe
+RUN apt-get -y install libncurses5 
+
+RUN cd /root && wget http://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/3.0.0/sratoolkit.3.0.0-ubuntu64.tar.gz 
+RUN cd /root && tar xzvf sratoolkit.3.0.0-ubuntu64.tar.gz
+#ENV PATH=$PATH:/root/sratoolkit.3.0.0-ubuntu64/bin
+RUN apt update && apt install -y genometools
+
+RUN cd /root && wget https://storage.googleapis.com/ntc-webdav/cellranger-6.1.2.tar
+RUN cd /root && tar -xvf cellranger-6.1.2.tar
+
+RUN R -e "install.packages(c('devtools','curl'))"
+
+RUN R -e "install.packages('BiocManager')"
+
+RUN R -e "install.packages('randomForest')"
+
+RUN R -e "install.packages('optparse')"
+
+RUN R -e "install.packages('rcdk')"
+
+RUN R -e "BiocManager::install(c(\"GenomicFeatures\",\"AnnotationDbi\",\"base\",\"dplyr\",\"GSEABase\",\"edgeR\",\"limma\",\"GSVA\",\"survival\",\"ggplot2\",\"viper\",\"RTN\",\"readxl\",\"hgu133plus2.db\",\"readxl\",\"RedeR\",\"hgu219.db\",\"Seurat\",\"utils\",\"viper\",\"RColorBrewer\",\"data.table\",\"synlet\",\"igraph\",\"Rtsne\",\"reshape\",\"purrr\",\"nnet\",\"NbClust\"))"
+
+RUN R -e "install.packages(c('rzmq','pbdZMQ'))"
+
+RUN R -e "install.packages('stringi')"
+
+RUN R -e "BiocManager::install('affyio')"
+
+RUN R -e "BiocManager::install('GEOquery')"
+
+RUN R -e "install.packages('umap')"
+
+RUN R -e "install.packages('maptools')"
+
+RUN apt update && apt install wget -y 
+# --- not successful ---
+# RUN wget https://cran.r-project.org/src/contrib/GeoDE_1.0.tar.gz # -O /tmp/GeoDE_1.0.tar.gz
+# RUN R -e "install.packages('/tmp/GeoDE_1.0.tar.gz', type='source')"
+
+RUN R -e "install.packages('plyr')"
+RUN R -e "install.packages('Signac')"
+
+RUN apt update && apt install -y libcurl4-openssl-dev
+RUN apt update && apt install -y libssl-dev 
+RUN apt update && apt install -y r-cran-devtools
+
+RUN R -e "install.packages(c('devtools'))"
+RUN R -e "devtools::install_github('cbg-ethz/slidr')"
+RUN R -e "devtools::install_github('satijalab/seurat-data')"
+RUN R -e "install.packages('scTenifoldNet')"
+
+# USER app
+WORKDIR /app
+EXPOSE 5000 8888
+VOLUME /app/data
+
+ENV APPYTER_PREFIX "/"
+ENV APPYTER_HOST "0.0.0.0"
+ENV APPYTER_PORT "5000"
+ENV APPYTER_DEBUG "false"
+ENV APPYTER_IPYNB "ntapp_hello_tensorflow.ipynb"
+ENV APPYTER_PROFILE "biojupies"
+ENV APPYTER_EXTRAS '["toc", "hide-code", "toggle-code"]'
+
+ENV PATH "/app:$PATH"
+ENV PYTHONPATH "/app:$PYTHONPATH"
+
+COPY --chown=app:app . /app
+
+##########
+# set env variables
+WORKDIR /root
+ENV HOME /root
+ENV PATH=$PATH:$HOME/.local/bin
+
+RUN chmod -R 777 /root
+
+ENV GOOGLE_APPLICATION_CREDENTIALS="/.config/gcp_sa_credentials.json"
+
+CMD [ "bash" ]
+
